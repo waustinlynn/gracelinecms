@@ -35,10 +35,10 @@ jobs:
           dotnet-version: 9.0.x
 
       - name: Start Dependencies with Docker Compose
-        run: docker-compose up -d
+        run: docker compose up -d
           
       - name: Run Tests
         run: dotnet test
         
       - name: Stop Dependencies
-        run: docker-compose down
+        run: docker compose down
