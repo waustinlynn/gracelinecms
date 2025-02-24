@@ -1,4 +1,6 @@
+using GracelineCMS.Domain.Auth;
 using GracelineCMS.Domain.Communication;
+using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Communication;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -24,6 +26,7 @@ builder.Services.AddSingleton<IEmailClient, GmailClient>(sp =>
     var encodedCredential = builder.Configuration.GetValue<string>("GOOGLE_SMTP_SA_CREDENTIAL") ?? throw new ArgumentNullException("GOOGLE_SMTP_SA_CREDENTIAL");
     return new GmailClient(encodedCredential);
 });
+builder.Services.AddSingleton<IAuthenticationCode, AuthenticationCode>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

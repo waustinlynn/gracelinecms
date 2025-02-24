@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace GracelineCMS.Domain.Auth
+﻿namespace GracelineCMS.Domain.Auth
 {
     public interface IAuthenticationCode
     {
         Task<string> CreateAuthCodeAsync(string email);
+        Task DeleteExpiredCodes();
+        Task<bool> ValidateCodeWithEmail(string email, string code);
     }
 }
