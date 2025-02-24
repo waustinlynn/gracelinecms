@@ -1,6 +1,5 @@
 ﻿using GracelineCMS.Domain.Auth;
 using GracelineCMS.Infrastructure.Auth;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GracelineCMS.Controllers

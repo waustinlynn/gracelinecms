@@ -1,16 +1,8 @@
-﻿using Google.Apis.Auth.OAuth2.Requests;
-using GracelineCMS.Infrastructure.Auth;
+﻿using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Threading.Tasks;
-using System.Web;
 
 namespace GracelineCMS.Tests.Integration
 {
@@ -58,7 +50,7 @@ namespace GracelineCMS.Tests.Integration
             var response = await GlobalFixtures.PostAsync($"/authentication/code", authCodeRequest);
             Assert.That(response.IsSuccessStatusCode, Is.True);
             var authCode = string.Empty;
-            using(var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
             {
                 authCode = await context.AuthCodes.Where(m => m.EmailAddress == email).Select(m => m.Code).FirstAsync();
             }
