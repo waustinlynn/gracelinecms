@@ -1,4 +1,5 @@
 ﻿using GracelineCMS.Domain.Communication;
+using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -55,6 +56,19 @@ namespace GracelineCMS.Tests
 
         private const string ConnectionString = "Host=localhost;Port=5432;Database=gracelinecms_test;Username=postgres;Password=postgres";
         public static IConfiguration Configuration { get; private set; }
+        public static User GetSavedUser(IDbContextFactory<AppDbContext> dbContextFactory)
+        {
+            using (var context = dbContextFactory.CreateDbContext())
+            {
+                var user = new User()
+                {
+                    EmailAddress = "test@email.com"
+                };
+                context.Users.Add(user);
+                context.SaveChanges();
+                return user;
+            }
+        }
 
         static GlobalFixtures()
         {

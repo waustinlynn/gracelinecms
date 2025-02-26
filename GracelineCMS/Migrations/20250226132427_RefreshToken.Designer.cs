@@ -3,6 +3,7 @@ using System;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GracelineCMS.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250226132427_RefreshToken")]
+    partial class RefreshToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,15 +37,14 @@ namespace GracelineCMS.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("EmailAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("AuthCodes");
                 });
@@ -102,15 +104,6 @@ namespace GracelineCMS.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("GracelineCMS.Domain.Entities.AuthCode", b =>
-                {
-                    b.HasOne("GracelineCMS.Domain.Entities.User", "User")
-                        .WithMany("AuthCodes")
-                        .HasForeignKey("UserId");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("GracelineCMS.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("GracelineCMS.Domain.Entities.User", "User")
@@ -122,8 +115,6 @@ namespace GracelineCMS.Migrations
 
             modelBuilder.Entity("GracelineCMS.Domain.Entities.User", b =>
                 {
-                    b.Navigation("AuthCodes");
-
                     b.Navigation("RefreshTokens");
                 });
 #pragma warning restore 612, 618

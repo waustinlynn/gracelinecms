@@ -1,4 +1,5 @@
 ﻿using GracelineCMS.Domain.Auth;
+using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ namespace GracelineCMS.Tests.Integration
 #pragma warning disable CS8618
         IAuthenticationCode _authenticationCode;
         IDbContextFactory<AppDbContext> _dbContextFactory;
+        User _user;
 #pragma warning restore CS8618
 
         [SetUp]
@@ -18,30 +20,37 @@ namespace GracelineCMS.Tests.Integration
         {
             _dbContextFactory = GlobalFixtures.DbContextFactory;
             _authenticationCode = new AuthenticationCode(_dbContextFactory);
+            _user = new User
+            {
+                EmailAddress = "test@email.com"
+            };
+            using (var context = _dbContextFactory.CreateDbContext())
+            {
+                context.Users.Add(_user);
+                context.SaveChanges();
+            }
         }
         [Test]
-        public async Task CanCreateAuthCodeA()
+        public async Task CanCreateAuthCode()
         {
-            var email = "test@email.com";
-            await _authenticationCode.CreateAuthCodeAsync(email);
-
+            await _authenticationCode.CreateAuthCodeAsync(_user.EmailAddress);
 
             using (var context = await _dbContextFactory.CreateDbContextAsync())
             {
-                var authCode = await context.AuthCodes.Where(m => m.EmailAddress == email).FirstOrDefaultAsync();
+                var authCode = (
+                    await context.Users.Include(m => m.AuthCodes).Where(m => m.EmailAddress == _user.EmailAddress).FirstAsync()
+                ).AuthCodes.First().Code;
                 Assert.That(authCode, Is.Not.Null);
-                Assert.That(authCode?.EmailAddress, Is.EqualTo(email));
             }
         }
 
         [Test]
         public async Task CanDeleteAuthCodesThatAreExpired()
         {
-            var email = "test@email.com";
-            await _authenticationCode.CreateAuthCodeAsync(email);
+            await _authenticationCode.CreateAuthCodeAsync(_user.EmailAddress);
             using (var context = await _dbContextFactory.CreateDbContextAsync())
             {
-                var authCode = await context.AuthCodes.Where(m => m.EmailAddress == email).FirstAsync();
+                var authCode = (await context.Users.Include(u => u.AuthCodes).Where(u => u.EmailAddress == _user.EmailAddress).FirstAsync()).AuthCodes.First();
                 authCode.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
                 await context.SaveChangesAsync();
 
@@ -50,7 +59,7 @@ namespace GracelineCMS.Tests.Integration
 
             using (var context = await _dbContextFactory.CreateDbContextAsync())
             {
-                var authCodes = await context.AuthCodes.Where(m => m.EmailAddress == email).CountAsync();
+                var authCodes = await context.AuthCodes.CountAsync();
                 Assert.That(authCodes, Is.EqualTo(0));
             }
         }
@@ -58,29 +67,43 @@ namespace GracelineCMS.Tests.Integration
         [Test]
         public async Task ValidateCodeWithEmailReturnsFalse()
         {
-            var email = "test@email.com";
-            await _authenticationCode.CreateAuthCodeAsync(email);
-            var isValid = await _authenticationCode.ValidateCodeWithEmail(email, "badcode");
+            await _authenticationCode.CreateAuthCodeAsync(_user.EmailAddress);
+            var isValid = await _authenticationCode.ValidateCodeWithEmail(_user.EmailAddress, "badcode");
             Assert.That(isValid, Is.False);
         }
 
         [Test]
         public async Task ValidateCodeWithEmailReturnsTrue()
         {
-            var email = "test@email.com";
-            var code = await _authenticationCode.CreateAuthCodeAsync(email);
-            var isValid = await _authenticationCode.ValidateCodeWithEmail(email, code);
+            var code = await _authenticationCode.CreateAuthCodeAsync(_user.EmailAddress);
+            var isValid = await _authenticationCode.ValidateCodeWithEmail(_user.EmailAddress, code);
             Assert.That(isValid, Is.True);
         }
 
         [Test]
         public async Task ValidateCodeGenerationIsUnique()
         {
-            var email1 = "test1@email.com";
-            var email2 = "test2@email.com";
-            var code1 = await _authenticationCode.CreateAuthCodeAsync(email1);
-            var code2 = await _authenticationCode.CreateAuthCodeAsync(email2);
+            var user2 = new User
+            {
+                EmailAddress = "test2@email.com"
+            };
+            using (var context = _dbContextFactory.CreateDbContext())
+            {
+                context.Users.Add(user2);
+                context.SaveChanges();
+            }
+            var code1 = await _authenticationCode.CreateAuthCodeAsync(_user.EmailAddress);
+            var code2 = await _authenticationCode.CreateAuthCodeAsync(user2.EmailAddress);
             Assert.That(code1, Is.Not.EqualTo(code2));
+        }
+
+        [Test]
+        public void CreatingAuthCodeForMissingUserThrowsException()
+        {
+            Assert.Throws<AggregateException>(() =>
+            {
+                _authenticationCode.CreateAuthCodeAsync("missinguseremail").Wait();
+            });
         }
     }
 }

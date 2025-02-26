@@ -1,4 +1,5 @@
-﻿using GracelineCMS.Infrastructure.Auth;
+﻿using GracelineCMS.Domain.Entities;
+using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -8,13 +9,21 @@ namespace GracelineCMS.Tests.Integration
 {
     public class AuthCodeApiTests
     {
+#pragma warning disable CS8618
+        private User _user;
+#pragma warning restore CS8618
+
+        [SetUp]
+        public void Setup()
+        {
+            _user = GlobalFixtures.GetSavedUser(GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>());
+        }
         [Test]
         public async Task CanCallApiToCreateAuthCode()
         {
-            var email = "test@email.com";
             var authCodeRequest = new AuthCodeRequest()
             {
-                EmailAddress = email
+                EmailAddress = _user.EmailAddress
             };
             var response = await GlobalFixtures.PostAsync($"/authentication/code", authCodeRequest);
             Assert.That(response.IsSuccessStatusCode, Is.True);
@@ -23,16 +32,15 @@ namespace GracelineCMS.Tests.Integration
         [Test]
         public async Task VerifyingAuthCodeWithIncorrectEmailReturnsBadRequest()
         {
-            var email = "test@email.com";
             var authCodeRequest = new AuthCodeRequest()
             {
-                EmailAddress = email
+                EmailAddress = _user.EmailAddress
             };
             var response = await GlobalFixtures.PostAsync($"/authentication/code", authCodeRequest);
             Assert.That(response.IsSuccessStatusCode, Is.True);
             var authCodeValidationRequest = new AuthCodeValidationRequest()
             {
-                EmailAddress = email,
+                EmailAddress = _user.EmailAddress,
                 AuthCode = "randomcode"
             };
             var validationResponse = await GlobalFixtures.PostAsync($"/authentication/code/validate", authCodeValidationRequest);
@@ -42,7 +50,7 @@ namespace GracelineCMS.Tests.Integration
         [Test]
         public async Task VerifyingAuthCodeWithCorrectEmailReturnsBearerAndAccessToken()
         {
-            var email = "test@email.com";
+            var email = _user.EmailAddress;
             var authCodeRequest = new AuthCodeRequest()
             {
                 EmailAddress = email
@@ -52,7 +60,12 @@ namespace GracelineCMS.Tests.Integration
             var authCode = string.Empty;
             using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
             {
-                authCode = await context.AuthCodes.Where(m => m.EmailAddress == email).Select(m => m.Code).FirstAsync();
+                authCode = (await context.Users
+                    .Where(m => m.EmailAddress == email)
+                    .Include(m => m.AuthCodes)
+                    .FirstAsync())
+                    .AuthCodes.First().Code;
+
             }
             var authCodeValidationRequest = new AuthCodeValidationRequest()
             {
