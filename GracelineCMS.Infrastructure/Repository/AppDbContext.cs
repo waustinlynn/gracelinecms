@@ -5,7 +5,7 @@ namespace GracelineCMS.Infrastructure.Repository
 {
     public class AppDbContext : DbContext
     {
-        public DbSet<Organization> Organizations { get; set; }
+        public DbSet<Domain.Entities.Organization> Organizations { get; set; }
         public DbSet<AuthCode> AuthCodes { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }

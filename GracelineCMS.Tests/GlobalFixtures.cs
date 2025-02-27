@@ -1,4 +1,5 @@
-﻿using GracelineCMS.Domain.Communication;
+﻿using GracelineCMS.Domain.Auth;
+using GracelineCMS.Domain.Communication;
 using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -39,11 +40,27 @@ namespace GracelineCMS.Tests
             }
         }
 
-        public async static Task<HttpResponseMessage> PostAsync<T>(string path, T content)
+        private const string _globalAdminEmail = "admin@global.com";
+        public static string GlobalAdminEmail { get { return _globalAdminEmail; } }
+
+        public static string GetAuthToken(string emailAddress)
+        {
+            var tokenHandler = GetRequiredService<ITokenHandler>();
+            var token = tokenHandler.CreateToken(emailAddress);
+            return token;
+        }
+
+        public async static Task<HttpResponseMessage> PostAsync<T>(string path, T content, string? authToken = null)
         {
             var json = JsonConvert.SerializeObject(content);
             var httpContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            return await HttpClient.PostAsync(path, httpContent);
+            if (authToken != null)
+            {
+                HttpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            }
+            var response = await HttpClient.PostAsync(path, httpContent);
+            HttpClient.DefaultRequestHeaders.Authorization = null; //clear out auth
+            return response;
         }
 
         private static readonly IServiceProvider _serviceProvider;
@@ -80,14 +97,16 @@ namespace GracelineCMS.Tests
                         config.AddInMemoryCollection(new Dictionary<string, string?>
                         {
                             { "ConnectionStrings:DefaultConnection", ConnectionString },
-                            { "GOOGLE_SMTP_SA_CREDENTIAL", "FakeCredential" }
+                            { "GOOGLE_SMTP_SA_CREDENTIAL", "FakeCredential" },
+                            { "AuthenticationSigningSecret", "abcdefghijklmnopqrstuvwxyz123456789abcmendikekjdjjdkkdklllsjsjsjjkdk" },
+                            { "GlobalAdminEmail", _globalAdminEmail }
                         });
                     });
                 });
-            _serviceProvider = webApplicationFactory.Services;
-            _dbContextFactory = webApplicationFactory.Services.GetRequiredService<IDbContextFactory<AppDbContext>>();
-            ResetDatabase();
             Configuration = webApplicationFactory.Services.GetRequiredService<IConfiguration>();
+            _dbContextFactory = webApplicationFactory.Services.GetRequiredService<IDbContextFactory<AppDbContext>>();
+            _serviceProvider = webApplicationFactory.Services;
+            ResetDatabase();
             _httpClient = webApplicationFactory.CreateClient();
         }
 

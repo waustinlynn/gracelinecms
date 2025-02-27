@@ -3,15 +3,55 @@ using GracelineCMS.Domain.Communication;
 using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Communication;
 using GracelineCMS.Infrastructure.Repository;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+//config
 builder.Configuration.AddEnvironmentVariables();
 
+//auth
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    var secret = builder.Configuration.GetValue<string>("AuthenticationSigningSecret") ?? throw new ArgumentNullException("Missing AuthenticationSigningSecret config");
+    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+            System.Text.Encoding.UTF8.GetBytes(secret))
+    };
+});
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("GlobalAdmin", policy =>
+    {
+        policy.RequireRole("GlobalAdmin");
+    });
+});
+builder.Services.AddSingleton<IClaimsProvider, ClaimsProvider>(options =>
+{
+    var globalAdminEmail = builder.Configuration.GetValue<string>("GlobalAdminEmail") ?? throw new ArgumentNullException("Missing GlobalAdminEmail in config");
+    return new ClaimsProvider(globalAdminEmail);
+});
+builder.Services.AddSingleton<ITokenHandler>(options =>
+{
+    var secret = options.GetRequiredService<IConfiguration>()["AuthenticationSigningSecret"] ?? throw new ArgumentNullException("Missing AuthenticationSigningSecret config");
+    return new AppTokenHandler(options.GetRequiredService<IClaimsProvider>(), secret);
+});
+
+//app services
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetSection("ConnectionStrings").GetValue<string>("DefaultConnection"),
@@ -28,8 +68,9 @@ builder.Services.AddSingleton<IEmailClient, GmailClient>(sp =>
 });
 builder.Services.AddSingleton<IAuthenticationCode, AuthenticationCode>();
 
+
+//core
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks()
@@ -53,6 +94,7 @@ app.MapHealthChecks("/ready", new HealthCheckOptions
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
