@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using NUnit.Framework;
 
-namespace GracelineCMS.Tests.Integration
+namespace GracelineCMS.Tests.Integration.Api
 {
     public class OrganizationAuthorizationApiTests
     {
