@@ -1,9 +1,11 @@
+using GracelineCMS.Auth;
 using GracelineCMS.Domain.Auth;
 using GracelineCMS.Domain.Communication;
 using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Communication;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -13,8 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 //config
 builder.Configuration.AddEnvironmentVariables();
 
-//auth
+builder.Services.AddHttpContextAccessor();
 
+//auth
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -39,7 +42,12 @@ builder.Services.AddAuthorization(options =>
     {
         policy.RequireRole("GlobalAdmin");
     });
+    options.AddPolicy("OrganizationAdmin", policy =>
+    {
+        policy.Requirements.Add(new OrganizationAdminRequirement());
+    });
 });
+builder.Services.AddSingleton<IAuthorizationHandler, OrganizationAdminRequirementHandler>();
 builder.Services.AddSingleton<IClaimsProvider, ClaimsProvider>(options =>
 {
     var globalAdminEmail = builder.Configuration.GetValue<string>("GlobalAdminEmail") ?? throw new ArgumentNullException("Missing GlobalAdminEmail in config");

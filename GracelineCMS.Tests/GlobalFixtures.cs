@@ -2,6 +2,7 @@
 using GracelineCMS.Domain.Communication;
 using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Repository;
+using GracelineCMS.Tests.Fakes;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -50,18 +51,7 @@ namespace GracelineCMS.Tests
             return token;
         }
 
-        public async static Task<HttpResponseMessage> PostAsync<T>(string path, T content, string? authToken = null)
-        {
-            var json = JsonConvert.SerializeObject(content);
-            var httpContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            if (authToken != null)
-            {
-                HttpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
-            }
-            var response = await HttpClient.PostAsync(path, httpContent);
-            HttpClient.DefaultRequestHeaders.Authorization = null; //clear out auth
-            return response;
-        }
+
 
         private static readonly IServiceProvider _serviceProvider;
         public static T GetRequiredService<T>()
@@ -77,10 +67,7 @@ namespace GracelineCMS.Tests
         {
             using (var context = dbContextFactory.CreateDbContext())
             {
-                var user = new User()
-                {
-                    EmailAddress = "test@email.com"
-                };
+                var user = FakeUser.User;
                 context.Users.Add(user);
                 context.SaveChanges();
                 return user;
@@ -116,6 +103,46 @@ namespace GracelineCMS.Tests
             using var context = await DbContextFactory.CreateDbContextAsync();
             await context.Database.EnsureDeletedAsync(); // Cleanup after tests
             HttpClient.Dispose();
+        }
+
+        //api helper methods
+        public async static Task<HttpResponseMessage> GetAsync(string path, string? authToken = null, Dictionary<string, string>? customHeaders = null)
+        {
+            if (authToken != null)
+            {
+                HttpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            }
+            if (customHeaders != null)
+            {
+                foreach (var header in customHeaders)
+                {
+                    HttpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
+                }
+            }
+            var response = await HttpClient.GetAsync(path);
+
+            HttpClient.DefaultRequestHeaders.Clear();
+            return response;
+        }
+
+        public async static Task<HttpResponseMessage> PostAsync<T>(string path, T content, string? authToken = null, Dictionary<string, string>? customHeaders = null)
+        {
+            var json = JsonConvert.SerializeObject(content);
+            var httpContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            if (authToken != null)
+            {
+                HttpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            }
+            if (customHeaders != null)
+            {
+                foreach (var header in customHeaders)
+                {
+                    HttpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
+                }
+            }
+            var response = await HttpClient.PostAsync(path, httpContent);
+            HttpClient.DefaultRequestHeaders.Clear();
+            return response;
         }
     }
 

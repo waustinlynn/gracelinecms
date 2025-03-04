@@ -16,7 +16,8 @@ namespace GracelineCMS.Infrastructure.Repository
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.Entity<User>()
-                .HasIndex(u => u.EmailAddress);
+                .HasIndex(u => u.EmailAddress)
+                .IsUnique();
         }
     }
 }
