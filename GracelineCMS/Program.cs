@@ -74,7 +74,22 @@ builder.Services.AddSingleton<IEmailClient, GmailClient>(sp =>
     var encodedCredential = builder.Configuration.GetValue<string>("GOOGLE_SMTP_SA_CREDENTIAL") ?? throw new ArgumentNullException("GOOGLE_SMTP_SA_CREDENTIAL");
     return new GmailClient(encodedCredential);
 });
-builder.Services.AddSingleton<IAuthenticationCode, AuthenticationCode>();
+builder.Services.AddSingleton<IAuthenticationCodeEmail, AuthenticationCodeEmail>();
+builder.Services.AddSingleton(sp =>
+{
+    var defaultFromAddress = sp.GetRequiredService<IConfiguration>().GetValue<string>("DefaultFromAddress") ?? throw new ArgumentNullException("Missing DefaultFromAddress in config");
+    var defaultFromName = sp.GetRequiredService<IConfiguration>().GetValue<string>("DefaultFromName") ?? defaultFromAddress;
+    return new EmailCreator(new DefaultEmailAddressConfig
+    {
+        FromAddress = defaultFromAddress,
+        FromName = defaultFromName
+    });
+});
+builder.Services.AddSingleton<IAuthenticationCode>(sp =>
+{
+    var globalAdminEmail = sp.GetRequiredService<IConfiguration>().GetValue<string>("GlobalAdminEmail") ?? throw new Exception("Missing GlobalAdminEmail in config");
+    return new AuthenticationCode(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), globalAdminEmail);
+});
 
 
 //core
@@ -83,8 +98,19 @@ builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks()
     .AddCheck<ReadinessHealthCheck>("readiness");
+builder.Services.AddCors(config =>
+{
+    config.AddDefaultPolicy(policy =>
+    {
+        var allowedHosts = builder.Configuration.GetValue<string>("AllowedOrigins")?.Split(";") ?? [];
+        policy.WithOrigins(allowedHosts).AllowAnyHeader().AllowAnyMethod();
+    });
+});
+
 
 var app = builder.Build();
+
+app.UseCors();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -104,6 +130,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
 
 app.MapControllers();
 

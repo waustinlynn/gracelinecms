@@ -19,7 +19,7 @@ namespace GracelineCMS.Tests.Integration
         public void Setup()
         {
             _dbContextFactory = GlobalFixtures.DbContextFactory;
-            _authenticationCode = new AuthenticationCode(_dbContextFactory);
+            _authenticationCode = new AuthenticationCode(_dbContextFactory, GlobalFixtures.GlobalAdminEmail);
             _user = new User
             {
                 EmailAddress = "test@email.com"
@@ -104,6 +104,14 @@ namespace GracelineCMS.Tests.Integration
             {
                 _authenticationCode.CreateAuthCodeAsync("missinguseremail").Wait();
             });
+        }
+
+        [Test]
+        public async Task CanCreateAuthCodeAndUserForGlobalAdmin()
+        {
+            var globalAdminEmail = GlobalFixtures.GlobalAdminEmail;
+            var code = await _authenticationCode.CreateAuthCodeAsync(globalAdminEmail);
+            Assert.That(code, Is.Not.Null);
         }
     }
 }

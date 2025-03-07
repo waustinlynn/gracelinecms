@@ -6,7 +6,7 @@ namespace GracelineCMS.Tests.Unit
     public class EmailTests
     {
         [Test]
-        public void MissingFromAddressThrowsEmailCreatorExcetion()
+        public void MissingFromAddressThrowsEmailCreatorException()
         {
             var emailMessageConfig = new EmailAddressConfig()
             {

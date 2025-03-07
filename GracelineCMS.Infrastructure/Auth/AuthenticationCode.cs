@@ -6,7 +6,8 @@ using Microsoft.EntityFrameworkCore;
 namespace GracelineCMS.Infrastructure.Auth
 {
     public class AuthenticationCode(
-        IDbContextFactory<AppDbContext> dbContextFactory
+        IDbContextFactory<AppDbContext> dbContextFactory,
+        string globalAdminEmail
     ) : IAuthenticationCode
     {
         private static int RandomCode()
@@ -15,10 +16,25 @@ namespace GracelineCMS.Infrastructure.Auth
         }
         public async Task<string> CreateAuthCodeAsync(string email)
         {
-
+            email = email.ToLower();
             using (var context = await dbContextFactory.CreateDbContextAsync())
             {
-                var user = await context.Users.Include(u => u.AuthCodes).FirstAsync(u => u.EmailAddress == email);
+                var user = await context.Users.Include(u => u.AuthCodes).FirstOrDefaultAsync(u => u.EmailAddress == email);
+                if (user == null)
+                {
+                    if (email == globalAdminEmail)
+                    {
+                        user = new User
+                        {
+                            EmailAddress = email,
+                        };
+                        context.Users.Add(user);
+                    }
+                    else
+                    {
+                        throw new Exception("No user found with that email address.");
+                    }
+                }
                 var randomizedCode = RandomCode().ToString();
                 if (user.AuthCodes.Count > 0)
                 {
@@ -60,7 +76,7 @@ namespace GracelineCMS.Infrastructure.Auth
             {
                 var authCode = context.Users
                     .Include(u => u.AuthCodes)
-                    .First(u => u.EmailAddress == email)
+                    .First(u => u.EmailAddress == email.ToLower())
                     .AuthCodes
                     .FirstOrDefault(m => m.Code == code);
                 if (authCode == null)

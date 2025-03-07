@@ -2,7 +2,6 @@
 using GracelineCMS.Infrastructure.Content;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +12,25 @@ namespace GracelineCMS.Controllers
     [Authorize(Policy = "OrganizationAdmin")]
     public class ContentModuleController(IDbContextFactory<AppDbContext> dbContextFactory) : ControllerBase
     {
+        [HttpGet]
+        public async Task<IActionResult> GetContentModules()
+        {
+            if (!HttpContext.Request.Headers.TryGetValue("OrganizationId", out var organizationId))
+            {
+                return BadRequest("OrganizationId header not found");
+            }
+            var organizationIdString = organizationId.ToString();
+            if (String.IsNullOrEmpty(organizationIdString))
+            {
+                return BadRequest("OrganizationId header not found");
+            }
+            using (var context = await dbContextFactory.CreateDbContextAsync())
+            {
+                var contentModules = await context.ContentModules.Where(cm => cm.Organization.Id == organizationIdString).ToListAsync();
+                return Ok(contentModules);
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateContentModule([FromBody] ContentModuleRequest request)
         {

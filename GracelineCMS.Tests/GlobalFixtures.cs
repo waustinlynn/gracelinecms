@@ -4,6 +4,7 @@ using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Repository;
 using GracelineCMS.Tests.Fakes;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,9 +69,30 @@ namespace GracelineCMS.Tests
             using (var context = dbContextFactory.CreateDbContext())
             {
                 var user = FakeUser.User;
+                user.EmailAddress = user.EmailAddress.ToLower();
                 context.Users.Add(user);
                 context.SaveChanges();
                 return user;
+            }
+        }
+
+        public static AuthenticatedRequestHelper GetAuthenticatedRequestHelper(IDbContextFactory<AppDbContext>? dbContextFactory = null)
+        {
+            dbContextFactory = dbContextFactory ?? GetRequiredService<IDbContextFactory<AppDbContext>>();
+            using (var context = dbContextFactory.CreateDbContext())
+            {
+                var user = FakeUser.User;
+                var organization = FakeOrganization.Organization;
+                user.EmailAddress = user.EmailAddress.ToLower();
+                organization.Users.Add(user);
+                context.Organizations.Add(organization);
+                context.SaveChanges();
+                var authToken = GetAuthToken(user.EmailAddress);
+                var headers = new Dictionary<string, string>
+                {
+                    { "OrganizationId", organization.Id },
+                };
+                return new AuthenticatedRequestHelper { AuthToken = authToken, Organization = organization, User = user, Headers = headers };
             }
         }
 
@@ -88,6 +110,10 @@ namespace GracelineCMS.Tests
                             { "AuthenticationSigningSecret", "abcdefghijklmnopqrstuvwxyz123456789abcmendikekjdjjdkkdklllsjsjsjjkdk" },
                             { "GlobalAdminEmail", _globalAdminEmail }
                         });
+                    });
+                    builder.ConfigureTestServices(services =>
+                    {
+                        services.AddSingleton<IEmailClient, TestEmailClient>();
                     });
                 });
             Configuration = webApplicationFactory.Services.GetRequiredService<IConfiguration>();
@@ -158,5 +184,23 @@ namespace GracelineCMS.Tests
         }
     }
 
+}
+
+public class AuthenticatedRequestHelper
+{
+    public required string AuthToken { get; set; }
+    public required Organization Organization { get; set; }
+    public required User User { get; set; }
+    public required Dictionary<string, string> Headers { get; set; }
+}
+
+public class TestEmailClient : IEmailClient
+{
+    public List<EmailMessage> SentMessages = new List<EmailMessage>();
+    public async Task SendEmailAsync(EmailMessage emailMessage)
+    {
+        await Task.CompletedTask;
+        SentMessages.Add(emailMessage);
+    }
 }
 
