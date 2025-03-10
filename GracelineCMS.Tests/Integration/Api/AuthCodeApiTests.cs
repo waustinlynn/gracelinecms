@@ -2,7 +2,6 @@
 using GracelineCMS.Domain.Communication;
 using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Auth;
-using GracelineCMS.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using NUnit.Framework;
@@ -19,7 +18,7 @@ namespace GracelineCMS.Tests.Integration.Api
         [SetUp]
         public void Setup()
         {
-            _user = GlobalFixtures.GetSavedUser(GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>());
+            _user = GlobalFixtures.GetSavedUser();
         }
         [Test]
         public async Task CanCallApiToCreateAuthCodeAndValidateEmailSent()
@@ -65,7 +64,7 @@ namespace GracelineCMS.Tests.Integration.Api
 
 
             var authCode = string.Empty;
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 authCode = (await context.Users
                     .Where(m => m.EmailAddress == email.ToLower())
@@ -91,7 +90,7 @@ namespace GracelineCMS.Tests.Integration.Api
             JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
             Assert.That(handler.CanReadToken(authCodeValidationResponse?.AccessToken), Is.True);
 
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 var user = await context.Users
                     .Where(m => m.EmailAddress == email.ToLower())
@@ -125,7 +124,7 @@ namespace GracelineCMS.Tests.Integration.Api
             Assert.That(response.IsSuccessStatusCode, Is.True);
             var authCode = string.Empty;
 
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 authCode = (await context.Users
                     .Where(m => m.EmailAddress == email.ToLower())
@@ -145,7 +144,7 @@ namespace GracelineCMS.Tests.Integration.Api
             var authCodeValidationResponse = JsonConvert.DeserializeObject<AccessRefreshToken>(content);
             Assert.That(authCodeValidationResponse, Is.Not.Null);
 
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 var user = await context.Users
                     .Where(m => m.EmailAddress == email.ToLower())
@@ -176,7 +175,7 @@ namespace GracelineCMS.Tests.Integration.Api
             Assert.That(response.IsSuccessStatusCode, Is.True);
 
             var authCode = string.Empty;
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 authCode = (await context.Users
                     .Where(m => m.EmailAddress == email.ToLower())
@@ -203,7 +202,7 @@ namespace GracelineCMS.Tests.Integration.Api
 
             Assert.That(secondAccessRefreshToken?.RefreshToken, Is.Not.EqualTo(firstAccessRefreshToken?.RefreshToken));
 
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 var user = await context.Users
                     .Where(m => m.EmailAddress == email.ToLower())

@@ -1,6 +1,5 @@
 ﻿using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Content;
-using GracelineCMS.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using NUnit.Framework;
@@ -45,7 +44,7 @@ namespace GracelineCMS.Tests.Integration.Api
             };
             var response = await GlobalFixtures.PostAsync("/contentmodule", createContentModuleRequest, _authenticatedRequestHelper.AuthToken, _authenticatedRequestHelper.Headers);
             Assert.That(response.IsSuccessStatusCode);
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 var contentModule = await context.ContentModules.Include(c => c.Organization).FirstOrDefaultAsync(m => m.Name == createContentModuleRequest.Name);
                 Assert.That(contentModule, Is.Not.Null);

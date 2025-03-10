@@ -1,6 +1,5 @@
 ﻿using GracelineCMS.Domain.Auth;
 using GracelineCMS.Domain.Entities;
-using GracelineCMS.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
 using NUnit.Framework;
 using System.IdentityModel.Tokens.Jwt;
@@ -40,7 +39,7 @@ namespace GracelineCMS.Tests.Integration
         public async Task RefreshingExpiredTokenThrowsException()
         {
             AccessRefreshToken accessRefreshToken = await _tokenHandler.CreateAccessAndRefreshToken(_user.EmailAddress);
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 var user = context.Users.Include(u => u.RefreshTokens).First(u => u.EmailAddress == _user.EmailAddress);
                 var refreshToken = user.RefreshTokens.First();
@@ -57,7 +56,7 @@ namespace GracelineCMS.Tests.Integration
             AccessRefreshToken newAccessRefreshToken = await _tokenHandler.RefreshToken(_user.EmailAddress, accessRefreshToken.RefreshToken);
             JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
             Assert.That(handler.CanReadToken(newAccessRefreshToken.AccessToken), Is.True);
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 var user = await context.Users.Include(u => u.RefreshTokens).FirstAsync(u => u.EmailAddress == _user.EmailAddress);
                 Assert.That(user.RefreshTokens.Count, Is.EqualTo(1));

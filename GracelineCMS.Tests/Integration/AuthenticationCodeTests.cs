@@ -20,15 +20,7 @@ namespace GracelineCMS.Tests.Integration
         {
             _dbContextFactory = GlobalFixtures.DbContextFactory;
             _authenticationCode = new AuthenticationCode(_dbContextFactory);
-            _user = new User
-            {
-                EmailAddress = "test@email.com"
-            };
-            using (var context = _dbContextFactory.CreateDbContext())
-            {
-                context.Users.Add(_user);
-                context.SaveChanges();
-            }
+            _user = GlobalFixtures.GetSavedUser();
         }
         [Test]
         public async Task CanCreateAuthCode()
@@ -59,7 +51,7 @@ namespace GracelineCMS.Tests.Integration
 
             using (var context = await _dbContextFactory.CreateDbContextAsync())
             {
-                var authCodes = await context.AuthCodes.CountAsync();
+                var authCodes = await context.AuthCodes.Where(a => a.User.EmailAddress == _user.EmailAddress).CountAsync();
                 Assert.That(authCodes, Is.EqualTo(0));
             }
         }

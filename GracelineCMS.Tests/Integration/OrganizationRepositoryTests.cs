@@ -1,4 +1,4 @@
-﻿using GracelineCMS.Domain.Entities;
+﻿using GracelineCMS.Tests.Fakes;
 using Microsoft.EntityFrameworkCore;
 using NUnit.Framework;
 
@@ -11,14 +11,11 @@ namespace GracelineCMS.Tests.Integration
         {
             using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
-                var organization = new Organization
-                {
-                    Name = "Test Organization"
-                };
+                var organization = FakeOrganization.Organization;
 
                 context.Organizations.Add(organization);
                 await context.SaveChangesAsync();
-                var retrievedOrganizations = await context.Organizations.ToListAsync();
+                var retrievedOrganizations = await context.Organizations.Where(o => o.Name == organization.Name).ToListAsync();
                 Assert.That(retrievedOrganizations.Count, Is.EqualTo(1));
                 var retrievedOrganization = retrievedOrganizations.FirstOrDefault();
                 Assert.That(retrievedOrganization?.Name, Is.EqualTo(organization.Name));

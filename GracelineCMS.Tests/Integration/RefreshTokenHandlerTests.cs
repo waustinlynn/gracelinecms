@@ -20,15 +20,7 @@ namespace GracelineCMS.Tests.Integration
         {
             _dbContextFactory = GlobalFixtures.DbContextFactory;
             _refreshTokenHandler = new RefreshTokenHandler(_dbContextFactory);
-            _user = new User
-            {
-                EmailAddress = "test@email.com"
-            };
-            using (var context = _dbContextFactory.CreateDbContext())
-            {
-                context.Users.Add(_user);
-                context.SaveChanges();
-            }
+            _user = GlobalFixtures.GetSavedUser();
         }
         [Test]
         public async Task RefreshingTokenWhenMissingInDatabaseThrowsException()
@@ -53,9 +45,9 @@ namespace GracelineCMS.Tests.Integration
         [Test]
         public async Task RefreshingTokenWhenRefreshTokenIsExpiredReturnsFalse()
         {
-            var email = "test@email.com";
+            var email = _user.EmailAddress;
             var refreshToken = await _refreshTokenHandler.CreateRefreshTokenAsync(email);
-            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
                 var user = await context.Users.Include(u => u.RefreshTokens).Where(m => m.EmailAddress == email).FirstAsync();
                 var savedRefreshToken = user.RefreshTokens.First();

@@ -31,7 +31,6 @@ namespace GracelineCMS.Tests
         {
             get
             {
-                ResetDatabase();
                 return _dbContextFactory;
             }
         }
