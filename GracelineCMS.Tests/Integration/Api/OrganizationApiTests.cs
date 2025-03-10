@@ -1,4 +1,5 @@
 ﻿using GracelineCMS.Domain.Auth;
+using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Organization;
 using GracelineCMS.Infrastructure.Repository;
 using GracelineCMS.Tests.Fakes;
@@ -13,11 +14,12 @@ namespace GracelineCMS.Tests.Integration.Api
         [Test]
         public async Task CannotCreateOrganizationIfNotAGlobalAdmin()
         {
+            var user = GlobalFixtures.GetSavedUser(GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>());
             var organizationRequest = new CreateOrganizationRequest()
             {
                 Name = "Test Organization"
             };
-            var authToken = GlobalFixtures.GetAuthToken("notaglobaladmin@email.com");
+            var authToken = GlobalFixtures.GetAuthToken(user.EmailAddress);
             var response = await GlobalFixtures.PostAsync($"/organization", organizationRequest, authToken);
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
         }
@@ -45,15 +47,15 @@ namespace GracelineCMS.Tests.Integration.Api
         {
             var claimsProvider = GlobalFixtures.GetRequiredService<IClaimsProvider>();
             var badSecret = "9238hj9028hg092yht9g028y40t9283y940t82h789gyh274ty040ygft4801y74t90ty40789";
-            ITokenHandler tokenHandler = new AppTokenHandler(claimsProvider, badSecret);
-            var authToken = tokenHandler.CreateToken(GlobalFixtures.GlobalAdminEmail);
+            ITokenHandler tokenHandler = new AppTokenHandler(claimsProvider, badSecret, GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>());
+            var accessRefreshToken = await tokenHandler.CreateAccessAndRefreshToken(GlobalFixtures.GlobalAdminEmail);
 
             var fakeOrganization = FakeOrganization.Organization;
             var organizationRequest = new CreateOrganizationRequest()
             {
                 Name = fakeOrganization.Name
             };
-            var response = await GlobalFixtures.PostAsync($"/organization", organizationRequest, authToken);
+            var response = await GlobalFixtures.PostAsync($"/organization", organizationRequest, accessRefreshToken.AccessToken);
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
         }
     }

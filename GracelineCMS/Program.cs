@@ -56,7 +56,7 @@ builder.Services.AddSingleton<IClaimsProvider, ClaimsProvider>(options =>
 builder.Services.AddSingleton<ITokenHandler>(options =>
 {
     var secret = options.GetRequiredService<IConfiguration>()["AuthenticationSigningSecret"] ?? throw new ArgumentNullException("Missing AuthenticationSigningSecret config");
-    return new AppTokenHandler(options.GetRequiredService<IClaimsProvider>(), secret);
+    return new AppTokenHandler(options.GetRequiredService<IClaimsProvider>(), secret, options.GetRequiredService<IDbContextFactory<AppDbContext>>());
 });
 
 //app services
@@ -85,11 +85,7 @@ builder.Services.AddSingleton(sp =>
         FromName = defaultFromName
     });
 });
-builder.Services.AddSingleton<IAuthenticationCode>(sp =>
-{
-    var globalAdminEmail = sp.GetRequiredService<IConfiguration>().GetValue<string>("GlobalAdminEmail") ?? throw new Exception("Missing GlobalAdminEmail in config");
-    return new AuthenticationCode(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), globalAdminEmail);
-});
+builder.Services.AddSingleton<IAuthenticationCode, AuthenticationCode>();
 
 
 //core

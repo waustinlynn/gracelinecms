@@ -19,7 +19,7 @@ namespace GracelineCMS.Tests.Integration
         public void Setup()
         {
             _dbContextFactory = GlobalFixtures.DbContextFactory;
-            _authenticationCode = new AuthenticationCode(_dbContextFactory, GlobalFixtures.GlobalAdminEmail);
+            _authenticationCode = new AuthenticationCode(_dbContextFactory);
             _user = new User
             {
                 EmailAddress = "test@email.com"

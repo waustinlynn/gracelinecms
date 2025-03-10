@@ -1,4 +1,5 @@
-﻿using GracelineCMS.Domain.Communication;
+﻿using GracelineCMS.Domain.Auth;
+using GracelineCMS.Domain.Communication;
 using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Repository;
@@ -85,7 +86,7 @@ namespace GracelineCMS.Tests.Integration.Api
 
 
             var content = await validationResponse.Content.ReadAsStringAsync();
-            var authCodeValidationResponse = JsonConvert.DeserializeObject<AuthCodeValidationResponse>(content);
+            var authCodeValidationResponse = JsonConvert.DeserializeObject<AccessRefreshToken>(content);
             Assert.That(authCodeValidationResponse, Is.Not.Null);
             JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
             Assert.That(handler.CanReadToken(authCodeValidationResponse?.AccessToken), Is.True);
@@ -96,7 +97,120 @@ namespace GracelineCMS.Tests.Integration.Api
                     .Where(m => m.EmailAddress == email.ToLower())
                     .Include(m => m.RefreshTokens)
                     .FirstAsync();
-                Assert.That(user.RefreshTokens.First(), Is.EqualTo(authCodeValidationResponse?.AccessToken));
+                Assert.That(user.RefreshTokens.First().RefreshTokenValue, Is.EqualTo(authCodeValidationResponse?.RefreshToken));
+            }
+        }
+
+        [Test]
+        public async Task VerifyingRefreshingTokenWhereRefreshTokenDoesNotExistReturnsBadRequest()
+        {
+            var refreshTokenRequest = new RefreshTokenRequest
+            {
+                EmailAddress = _user.EmailAddress,
+                RefreshToken = "badrefreshtoken"
+            };
+            var response = await GlobalFixtures.PostAsync($"/authentication/refresh", refreshTokenRequest);
+            Assert.That(response.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.InternalServerError));
+        }
+
+        [Test]
+        public async Task RefreshingTokenWhenTokenIsExpiredReturnsBadRequest()
+        {
+            var email = _user.EmailAddress;
+            var authCodeRequest = new AuthCodeRequest()
+            {
+                EmailAddress = email
+            };
+            var response = await GlobalFixtures.PostAsync($"/authentication/code", authCodeRequest);
+            Assert.That(response.IsSuccessStatusCode, Is.True);
+            var authCode = string.Empty;
+
+            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            {
+                authCode = (await context.Users
+                    .Where(m => m.EmailAddress == email.ToLower())
+                    .Include(m => m.AuthCodes)
+                    .FirstAsync())
+                    .AuthCodes.First().Code;
+            }
+
+            var authCodeValidationRequest = new AuthCodeValidationRequest()
+            {
+                EmailAddress = email,
+                AuthCode = authCode
+            };
+            var validationResponse = await GlobalFixtures.PostAsync($"/authentication/code/validate", authCodeValidationRequest);
+            Assert.That(validationResponse.IsSuccessStatusCode, Is.True);
+            var content = await validationResponse.Content.ReadAsStringAsync();
+            var authCodeValidationResponse = JsonConvert.DeserializeObject<AccessRefreshToken>(content);
+            Assert.That(authCodeValidationResponse, Is.Not.Null);
+
+            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            {
+                var user = await context.Users
+                    .Where(m => m.EmailAddress == email.ToLower())
+                    .Include(m => m.RefreshTokens)
+                    .FirstAsync();
+                user.RefreshTokens.First().ExpiresAt = DateTime.UtcNow.AddSeconds(-1);
+                await context.SaveChangesAsync();
+            }
+
+            var refreshTokenRequest = new RefreshTokenRequest
+            {
+                EmailAddress = _user.EmailAddress,
+                RefreshToken = authCodeValidationResponse?.RefreshToken!
+            };
+            var refreshResponse = await GlobalFixtures.PostAsync($"/authentication/refresh", refreshTokenRequest);
+            Assert.That(refreshResponse.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.InternalServerError));
+        }
+
+        [Test]
+        public async Task RefreshingTokenWhenTokenIsValidReturnsNewAccessTokenAndRefreshToken()
+        {
+            var email = _user.EmailAddress;
+            var authCodeRequest = new AuthCodeRequest()
+            {
+                EmailAddress = email
+            };
+            var response = await GlobalFixtures.PostAsync($"/authentication/code", authCodeRequest);
+            Assert.That(response.IsSuccessStatusCode, Is.True);
+
+            var authCode = string.Empty;
+            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            {
+                authCode = (await context.Users
+                    .Where(m => m.EmailAddress == email.ToLower())
+                    .Include(m => m.AuthCodes)
+                    .FirstAsync())
+                    .AuthCodes.First().Code;
+            }
+            var authCodeValidationRequest = new AuthCodeValidationRequest()
+            {
+                EmailAddress = email,
+                AuthCode = authCode
+            };
+            var firstValidationResponse = await GlobalFixtures.PostAsync($"/authentication/code/validate", authCodeValidationRequest);
+
+            var firstAccessRefreshToken = JsonConvert.DeserializeObject<AccessRefreshToken>(await firstValidationResponse.Content.ReadAsStringAsync());
+
+            var refreshTokenRequest = new RefreshTokenRequest
+            {
+                EmailAddress = _user.EmailAddress,
+                RefreshToken = firstAccessRefreshToken?.RefreshToken!
+            };
+            var refreshResponse = await GlobalFixtures.PostAsync($"/authentication/refresh", refreshTokenRequest);
+            var secondAccessRefreshToken = JsonConvert.DeserializeObject<AccessRefreshToken>(await refreshResponse.Content.ReadAsStringAsync());
+
+            Assert.That(secondAccessRefreshToken?.RefreshToken, Is.Not.EqualTo(firstAccessRefreshToken?.RefreshToken));
+
+            using (var context = await GlobalFixtures.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
+            {
+                var user = await context.Users
+                    .Where(m => m.EmailAddress == email.ToLower())
+                    .Include(m => m.RefreshTokens)
+                    .FirstAsync();
+                Assert.That(user.RefreshTokens.Count, Is.EqualTo(1));
+                Assert.That(user.RefreshTokens.First().RefreshTokenValue, Is.EqualTo(secondAccessRefreshToken?.RefreshToken));
             }
         }
     }

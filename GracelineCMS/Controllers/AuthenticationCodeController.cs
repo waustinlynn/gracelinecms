@@ -24,12 +24,8 @@ namespace GracelineCMS.Controllers
         public async Task<IActionResult> ValidateAuthCode([FromBody] AuthCodeValidationRequest request)
         {
             var validationResult = await authenticationCode.ValidateCodeWithEmail(request.EmailAddress, request.AuthCode);
-            var authCodeValidationResponse = new AuthCodeValidationResponse()
-            {
-                AccessToken = tokenHandler.CreateToken(request.EmailAddress),
-                RefreshToken = "refresh_token"
-            };
-            return validationResult ? Ok(authCodeValidationResponse) : BadRequest();
+            var accessRefreshToken = await tokenHandler.CreateAccessAndRefreshToken(request.EmailAddress);
+            return validationResult ? Ok(accessRefreshToken) : BadRequest();
         }
     }
 }

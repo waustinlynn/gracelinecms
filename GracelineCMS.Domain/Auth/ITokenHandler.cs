@@ -2,6 +2,7 @@
 {
     public interface ITokenHandler
     {
-        string CreateToken(string email);
+        Task<AccessRefreshToken> CreateAccessAndRefreshToken(string email);
+        Task<AccessRefreshToken> RefreshToken(string email, string refreshToken);
     }
 }
