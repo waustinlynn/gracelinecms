@@ -57,19 +57,18 @@ namespace GracelineCMS.Tests.Integration
         }
 
         [Test]
-        public async Task ValidateCodeWithEmailReturnsFalse()
+        public async Task ValidateBadCodeWithEmailThrowsException()
         {
             await _authenticationCode.CreateAuthCodeAsync(_user.EmailAddress);
-            var isValid = await _authenticationCode.ValidateCodeWithEmail(_user.EmailAddress, "badcode");
-            Assert.That(isValid, Is.False);
+            Assert.ThrowsAsync<Exception>(async () => await _authenticationCode.ValidateCodeWithEmail(_user.EmailAddress, "badcode"));
         }
 
         [Test]
         public async Task ValidateCodeWithEmailReturnsTrue()
         {
             var code = await _authenticationCode.CreateAuthCodeAsync(_user.EmailAddress);
-            var isValid = await _authenticationCode.ValidateCodeWithEmail(_user.EmailAddress, code);
-            Assert.That(isValid, Is.True);
+            await _authenticationCode.ValidateCodeWithEmail(_user.EmailAddress, code);
+            Assert.That(true, Is.True); //no exception thrown indicates valid validation
         }
 
         [Test]

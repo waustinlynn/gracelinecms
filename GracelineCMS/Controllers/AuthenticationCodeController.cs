@@ -21,11 +21,19 @@ namespace GracelineCMS.Controllers
         }
 
         [HttpPost("validate")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
         public async Task<IActionResult> ValidateAuthCode([FromBody] AuthCodeValidationRequest request)
         {
-            var validationResult = await authenticationCode.ValidateCodeWithEmail(request.EmailAddress, request.AuthCode);
+            await authenticationCode.ValidateCodeWithEmail(request.EmailAddress, request.AuthCode);
             var accessRefreshToken = await tokenHandler.CreateAccessAndRefreshToken(request.EmailAddress);
-            return validationResult ? Ok(accessRefreshToken) : BadRequest();
+            Response.Cookies.Append("refreshToken", accessRefreshToken.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true, 
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddDays(14)
+            });
+            return Ok(accessRefreshToken.AccessToken);
         }
     }
 }

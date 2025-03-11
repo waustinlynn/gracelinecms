@@ -59,7 +59,7 @@ namespace GracelineCMS.Infrastructure.Auth
             }
         }
 
-        public async Task<bool> ValidateCodeWithEmail(string email, string code)
+        public async Task ValidateCodeWithEmail(string email, string code)
         {
             using (var context = await dbContextFactory.CreateDbContextAsync())
             {
@@ -70,13 +70,12 @@ namespace GracelineCMS.Infrastructure.Auth
                     .FirstOrDefault(m => m.Code == code);
                 if (authCode == null)
                 {
-                    return false;
+                    throw new Exception("Missing auth code in database");
                 }
                 if (authCode.ExpiresAt < DateTime.UtcNow)
                 {
-                    return false;
+                    throw new Exception("Auth code has expired");
                 }
-                return true;
             }
         }
     }

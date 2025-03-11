@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 
 namespace GracelineCMS.Tests.Integration.Api
 {
@@ -48,7 +49,7 @@ namespace GracelineCMS.Tests.Integration.Api
                 AuthCode = "randomcode"
             };
             var validationResponse = await GlobalFixtures.PostAsync($"/authentication/code/validate", authCodeValidationRequest);
-            Assert.That(validationResponse.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.BadRequest));
+            Assert.That(validationResponse.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.InternalServerError));
         }
 
         [Test]
@@ -85,10 +86,8 @@ namespace GracelineCMS.Tests.Integration.Api
 
 
             var content = await validationResponse.Content.ReadAsStringAsync();
-            var authCodeValidationResponse = JsonConvert.DeserializeObject<AccessRefreshToken>(content);
-            Assert.That(authCodeValidationResponse, Is.Not.Null);
             JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
-            Assert.That(handler.CanReadToken(authCodeValidationResponse?.AccessToken), Is.True);
+            Assert.That(handler.CanReadToken(content), Is.True);
 
             using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
@@ -96,19 +95,18 @@ namespace GracelineCMS.Tests.Integration.Api
                     .Where(m => m.EmailAddress == email.ToLower())
                     .Include(m => m.RefreshTokens)
                     .FirstAsync();
-                Assert.That(user.RefreshTokens.First().RefreshTokenValue, Is.EqualTo(authCodeValidationResponse?.RefreshToken));
+                Assert.That(user.RefreshTokens.First().RefreshTokenValue, Is.EqualTo(validationResponse.GetRefreshToken()));
             }
         }
 
         [Test]
         public async Task VerifyingRefreshingTokenWhereRefreshTokenDoesNotExistReturnsBadRequest()
         {
-            var refreshTokenRequest = new RefreshTokenRequest
+            var headers = new Dictionary<string, string>
             {
-                EmailAddress = _user.EmailAddress,
-                RefreshToken = "badrefreshtoken"
+                { "Cookie", $"refreshToken=badrefreshtoken" }
             };
-            var response = await GlobalFixtures.PostAsync($"/authentication/refresh", refreshTokenRequest);
+            var response = await GlobalFixtures.GetAsync($"/token/refresh", customHeaders: headers);
             Assert.That(response.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.InternalServerError));
         }
 
@@ -140,9 +138,6 @@ namespace GracelineCMS.Tests.Integration.Api
             };
             var validationResponse = await GlobalFixtures.PostAsync($"/authentication/code/validate", authCodeValidationRequest);
             Assert.That(validationResponse.IsSuccessStatusCode, Is.True);
-            var content = await validationResponse.Content.ReadAsStringAsync();
-            var authCodeValidationResponse = JsonConvert.DeserializeObject<AccessRefreshToken>(content);
-            Assert.That(authCodeValidationResponse, Is.Not.Null);
 
             using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
@@ -154,12 +149,11 @@ namespace GracelineCMS.Tests.Integration.Api
                 await context.SaveChangesAsync();
             }
 
-            var refreshTokenRequest = new RefreshTokenRequest
+            var headers = new Dictionary<string, string>
             {
-                EmailAddress = _user.EmailAddress,
-                RefreshToken = authCodeValidationResponse?.RefreshToken!
+                { "Cookie", $"refreshToken={validationResponse.GetRefreshToken()}" }
             };
-            var refreshResponse = await GlobalFixtures.PostAsync($"/authentication/refresh", refreshTokenRequest);
+            var refreshResponse = await GlobalFixtures.GetAsync($"/token/refresh", customHeaders: headers);
             Assert.That(refreshResponse.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.InternalServerError));
         }
 
@@ -190,17 +184,19 @@ namespace GracelineCMS.Tests.Integration.Api
             };
             var firstValidationResponse = await GlobalFixtures.PostAsync($"/authentication/code/validate", authCodeValidationRequest);
 
-            var firstAccessRefreshToken = JsonConvert.DeserializeObject<AccessRefreshToken>(await firstValidationResponse.Content.ReadAsStringAsync());
+            var firstRefreshToken = firstValidationResponse.GetRefreshToken();
 
-            var refreshTokenRequest = new RefreshTokenRequest
-            {
-                EmailAddress = _user.EmailAddress,
-                RefreshToken = firstAccessRefreshToken?.RefreshToken!
-            };
-            var refreshResponse = await GlobalFixtures.PostAsync($"/authentication/refresh", refreshTokenRequest);
-            var secondAccessRefreshToken = JsonConvert.DeserializeObject<AccessRefreshToken>(await refreshResponse.Content.ReadAsStringAsync());
+            var refreshResponse = await GlobalFixtures.GetAsync(
+                $"/token/refresh", 
+                customHeaders: new Dictionary<string, string> 
+                {
+                    {"Cookie", $"refreshToken={firstRefreshToken}"}
+                }
+            );
 
-            Assert.That(secondAccessRefreshToken?.RefreshToken, Is.Not.EqualTo(firstAccessRefreshToken?.RefreshToken));
+            var secondRefreshToken = refreshResponse.GetRefreshToken();
+
+            Assert.That(secondRefreshToken, Is.Not.EqualTo(firstRefreshToken));
 
             using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())
             {
@@ -209,7 +205,7 @@ namespace GracelineCMS.Tests.Integration.Api
                     .Include(m => m.RefreshTokens)
                     .FirstAsync();
                 Assert.That(user.RefreshTokens.Count, Is.EqualTo(1));
-                Assert.That(user.RefreshTokens.First().RefreshTokenValue, Is.EqualTo(secondAccessRefreshToken?.RefreshToken));
+                Assert.That(user.RefreshTokens.First().RefreshTokenValue, Is.EqualTo(secondRefreshToken));
             }
         }
     }

@@ -13,6 +13,7 @@ namespace GracelineCMS.Controllers
     {
         [HttpGet("{id}")]
         [Authorize(Policy = "OrganizationAdmin")]
+        [ProducesResponseType(typeof(Organization), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetOrganization([FromRoute] string id)
         {
             using (var context = await dbContextFactory.CreateDbContextAsync())

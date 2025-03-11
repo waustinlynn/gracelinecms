@@ -10,19 +10,6 @@ namespace GracelineCMS.Infrastructure.Communication
 {
     public class GmailClient(string encodedCredential) : IEmailClient
     {
-        public async Task Send()
-        {
-            var credential = AuthenticateServiceAccount();
-            var service = new GmailService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = credential,
-                ApplicationName = "Gmail API Example",
-            });
-
-            await SendEmailAsync(service);
-        }
-
-        // Authenticate with Service Account
         private ICredential AuthenticateServiceAccount()
         {
             GoogleCredential credential;
@@ -36,32 +23,39 @@ namespace GracelineCMS.Infrastructure.Communication
         }
 
         // Send an email using the Gmail API
-        private static async Task SendEmailAsync(GmailService service)
+        private static async Task SendGmailAsync(GmailService service, EmailMessage emailMessage)
         {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("Graceline Software", "waustinlynn@gracelinesoftware.com"));
-            message.To.Add(new MailboxAddress("Austin Lynn", "waustinlynn@gmail.com"));
-            message.Subject = "Subject of Email";
-            message.Body = new TextPart("plain")
+            var mimeMessage = new MimeMessage();
+            mimeMessage.From.Add(new MailboxAddress(emailMessage.FromName, emailMessage.FromAddress));
+            mimeMessage.To.Add(new MailboxAddress(emailMessage.ToName, emailMessage.ToAddress));
+            mimeMessage.Subject = emailMessage.Subject;
+            mimeMessage.Body = new TextPart("plain")
             {
-                Text = "This is a test email sent using Gmail API with a service account."
+                Text = emailMessage.Body
             };
 
             var stream = new MemoryStream();
-            await message.WriteToAsync(stream);
+            await mimeMessage.WriteToAsync(stream);
             var encodedMessage = Convert.ToBase64String(stream.ToArray())
                 .Replace('+', '-')
                 .Replace('/', '_')
                 .Replace("=", "");
 
-            var emailMessage = new Message { Raw = encodedMessage };
+            var message = new Message { Raw = encodedMessage };
 
-            await service.Users.Messages.Send(emailMessage, "me").ExecuteAsync();
+            await service.Users.Messages.Send(message, "me").ExecuteAsync();
         }
 
-        public Task SendEmailAsync(EmailMessage emailMessage)
+        public async Task SendEmailAsync(EmailMessage emailMessage)
         {
-            throw new NotImplementedException();
+            var credential = AuthenticateServiceAccount();
+            var service = new GmailService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "GracelineCMS",
+            });
+
+            await SendGmailAsync(service, emailMessage);
         }
     }
 }

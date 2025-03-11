@@ -1,4 +1,5 @@
-﻿using GracelineCMS.Domain.Entities;
+﻿using GracelineCMS.Domain.Auth;
+using GracelineCMS.Domain.Entities;
 using GracelineCMS.Infrastructure.Content;
 using GracelineCMS.Infrastructure.Repository;
 using Microsoft.AspNetCore.Authorization;
@@ -13,6 +14,7 @@ namespace GracelineCMS.Controllers
     public class ContentModuleController(IDbContextFactory<AppDbContext> dbContextFactory) : ControllerBase
     {
         [HttpGet]
+        [ProducesResponseType(typeof(List<ContentModule>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetContentModules()
         {
             if (!HttpContext.Request.Headers.TryGetValue("OrganizationId", out var organizationId))

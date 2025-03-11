@@ -4,6 +4,6 @@
     {
         Task<string> CreateAuthCodeAsync(string email);
         Task DeleteExpiredCodes();
-        Task<bool> ValidateCodeWithEmail(string email, string code);
+        Task ValidateCodeWithEmail(string email, string code);
     }
 }

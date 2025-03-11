@@ -32,7 +32,7 @@ namespace GracelineCMS.Tests.Integration
         [Test]
         public void RefreshingMissingTokenThrowsException()
         {
-            Assert.ThrowsAsync<Exception>(async () => await _tokenHandler.RefreshToken(_user.EmailAddress, "missing token"));
+            Assert.ThrowsAsync<Exception>(async () => await _tokenHandler.RefreshToken("missing token"));
         }
 
         [Test]
@@ -46,14 +46,14 @@ namespace GracelineCMS.Tests.Integration
                 refreshToken.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
                 await context.SaveChangesAsync();
             }
-            Assert.ThrowsAsync<Exception>(async () => await _tokenHandler.RefreshToken(_user.EmailAddress, accessRefreshToken.RefreshToken));
+            Assert.ThrowsAsync<Exception>(async () => await _tokenHandler.RefreshToken(accessRefreshToken.RefreshToken));
         }
 
         [Test]
         public async Task CanRefreshToken()
         {
             AccessRefreshToken accessRefreshToken = await _tokenHandler.CreateAccessAndRefreshToken(_user.EmailAddress);
-            AccessRefreshToken newAccessRefreshToken = await _tokenHandler.RefreshToken(_user.EmailAddress, accessRefreshToken.RefreshToken);
+            AccessRefreshToken newAccessRefreshToken = await _tokenHandler.RefreshToken(accessRefreshToken.RefreshToken);
             JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
             Assert.That(handler.CanReadToken(newAccessRefreshToken.AccessToken), Is.True);
             using (var context = await GlobalFixtures.DbContextFactory.CreateDbContextAsync())

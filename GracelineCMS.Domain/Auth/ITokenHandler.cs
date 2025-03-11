@@ -3,6 +3,6 @@
     public interface ITokenHandler
     {
         Task<AccessRefreshToken> CreateAccessAndRefreshToken(string email);
-        Task<AccessRefreshToken> RefreshToken(string email, string refreshToken);
+        Task<AccessRefreshToken> RefreshToken(string refreshToken);
     }
 }

@@ -75,11 +75,11 @@ namespace GracelineCMS.Infrastructure.Auth
             return tokenHandler.WriteToken(token);
         }
 
-        public async Task<AccessRefreshToken> RefreshToken(string email, string refreshToken)
+        public async Task<AccessRefreshToken> RefreshToken(string refreshToken)
         {
             using (var context = await dbContextFactory.CreateDbContextAsync())
             {
-                var user = await context.Users.Include(u => u.RefreshTokens).FirstOrDefaultAsync(u => u.EmailAddress == email.ToLower());
+                var user = await context.Users.Include(u => u.RefreshTokens).FirstOrDefaultAsync(u => u.RefreshTokens.Any(t => t.RefreshTokenValue == refreshToken));
                 if (user == null)
                 {
                     throw new Exception("Missing user by email to refresh token");
@@ -93,7 +93,7 @@ namespace GracelineCMS.Infrastructure.Auth
                 {
                     throw new Exception("Refresh token is expired");
                 }
-                return await CreateAccessAndRefreshToken(email);
+                return await CreateAccessAndRefreshToken(user.EmailAddress);
             }
         }
     }

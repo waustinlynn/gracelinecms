@@ -4,11 +4,15 @@ using GracelineCMS.Domain.Communication;
 using GracelineCMS.Infrastructure.Auth;
 using GracelineCMS.Infrastructure.Communication;
 using GracelineCMS.Infrastructure.Repository;
+using GracelineCMS.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,6 +75,13 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 );
 builder.Services.AddSingleton<IEmailClient, GmailClient>(sp =>
 {
+    if(builder.Configuration.GetValue<string>("ASPNETCORE_ENVIRONMENT") == "Development")
+    {
+        var credentialFile = builder.Configuration.GetValue<string>("GOOGLE_SMTP_SA_CREDENTIAL") ?? throw new ArgumentNullException("GOOGLE_SMTP_SA_CREDENTIAL");
+        var base64Encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(File.ReadAllText(credentialFile)));
+        return new GmailClient(base64Encoded);
+    }
+    
     var encodedCredential = builder.Configuration.GetValue<string>("GOOGLE_SMTP_SA_CREDENTIAL") ?? throw new ArgumentNullException("GOOGLE_SMTP_SA_CREDENTIAL");
     return new GmailClient(encodedCredential);
 });
@@ -91,7 +102,16 @@ builder.Services.AddSingleton<IAuthenticationCode, AuthenticationCode>();
 //core
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "GracelineCMS", Version = "v1" });
+
+    c.SupportNonNullableReferenceTypes();
+
+    // Add the custom operation filter to all endpoints
+    c.OperationFilter<ProblemDetailsOperationFilter>();
+});
+
 builder.Services.AddHealthChecks()
     .AddCheck<ReadinessHealthCheck>("readiness");
 builder.Services.AddCors(config =>
@@ -99,7 +119,7 @@ builder.Services.AddCors(config =>
     config.AddDefaultPolicy(policy =>
     {
         var allowedHosts = builder.Configuration.GetValue<string>("AllowedOrigins")?.Split(";") ?? [];
-        policy.WithOrigins(allowedHosts).AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(allowedHosts).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
     });
 });
 
@@ -120,6 +140,8 @@ app.MapHealthChecks("/ready", new HealthCheckOptions
 {
     Predicate = check => check.Name == "readiness"
 });
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 
 app.UseHttpsRedirection();
